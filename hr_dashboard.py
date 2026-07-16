@@ -3,7 +3,7 @@ import pandas as pd
 import requests
 
 # --- APP CONFIGURATION ---
-st.set_page_config(page_title="HR Sourcing Dashboard", layout="wide", page_icon="💼")
+st.set_page_config(page_title="AOL HR Dashboard", layout="wide", page_icon="💼")
 
 # --- SECRETS MANAGEMENT ---
 try:
@@ -14,8 +14,8 @@ except KeyError:
     st.stop()
 
 # --- UI HEADER ---
-st.title("💼 Live Job Sourcing Dashboard")
-st.write("Search live job portals using the Google Custom Search API.")
+st.title("💼 HR Job Search Dashboard")
+st.write("Search live job portals on Google")
 
 # --- SIDEBAR: SEARCH PARAMETERS ---
 st.sidebar.header("🔍 Search Parameters")
