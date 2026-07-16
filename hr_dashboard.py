@@ -6,14 +6,12 @@ import requests
 st.set_page_config(page_title="HR Sourcing Dashboard", layout="wide", page_icon="💼")
 
 # --- SECRETS MANAGEMENT ---
-# The app will automatically pull these from .streamlit/secrets.toml (locally) 
-# or from Environment Variables (on Railway)
 try:
     API_KEY = st.secrets["GOOGLE_API_KEY"]
     CX_ID = st.secrets["GOOGLE_CX"]
 except KeyError:
     st.error("🚨 API Keys are missing! Please configure 'GOOGLE_API_KEY' and 'GOOGLE_CX' in your hosting environment.")
-    st.stop() # Prevents the rest of the app from loading if keys are missing
+    st.stop()
 
 # --- UI HEADER ---
 st.title("💼 Live Job Sourcing Dashboard")
@@ -25,6 +23,21 @@ st.sidebar.header("🔍 Search Parameters")
 job_title = st.sidebar.text_input("Job Title / Keyword", placeholder="e.g., Senior Python Developer")
 location = st.sidebar.text_input("Location", placeholder="e.g., Bengaluru, Remote")
 
+# NEW: Date restriction filter defaulting to Today
+date_filter = st.sidebar.selectbox(
+    "Date Posted",
+    options=["Past 24 Hours (Today)", "Past Week", "Any Time"],
+    index=0 
+)
+
+# Map UI selection to Google's specific dateRestrict syntax
+date_restrict_mapping = {
+    "Past 24 Hours (Today)": "d1",
+    "Past Week": "w1",
+    "Any Time": None
+}
+selected_date = date_restrict_mapping[date_filter]
+
 target_portals = st.sidebar.multiselect(
     "Target Job Boards",
     options=["instahyre.com", "naukri.com", "linkedin.com/jobs", "foundit.in"],
@@ -32,19 +45,25 @@ target_portals = st.sidebar.multiselect(
 )
 
 # --- GOOGLE SEARCH API FUNCTION ---
-def fetch_jobs_from_google(api_key, cx, title, loc, portals):
+def fetch_jobs_from_google(api_key, cx, title, loc, portals, date_restrict):
     """Calls the Google Custom Search API and parses the results."""
     
     site_query = " OR ".join([f"site:{site}" for site in portals])
     search_query = f'"{title}" {loc} ({site_query})'
     
     url = "https://www.googleapis.com/customsearch/v1"
+    
+    # Base parameters
     params = {
         'key': api_key,
         'cx': cx,
         'q': search_query,
         'num': 10 
     }
+    
+    # NEW: Dynamically inject the date filter if one is selected
+    if date_restrict:
+        params['dateRestrict'] = date_restrict
     
     response = requests.get(url, params=params)
     
@@ -76,14 +95,22 @@ if st.button("Search Live Jobs", type="primary"):
     elif not target_portals:
         st.warning("Please select at least one Target Job Board.")
     else:
-        with st.spinner(f"Querying Google for {job_title} roles in {location}..."):
-            # We now pass the secret keys directly into the function
-            df_results = fetch_jobs_from_google(API_KEY, CX_ID, job_title, location, target_portals)
+        with st.spinner(f"Querying Google for '{job_title}' roles in '{location}' ({date_filter})..."):
+            
+            # Pass the new selected_date parameter into our function
+            df_results = fetch_jobs_from_google(
+                API_KEY, 
+                CX_ID, 
+                job_title, 
+                location, 
+                target_portals, 
+                selected_date
+            )
             
             if df_results.empty:
-                st.warning("No results found. Try broadening your search terms.")
+                st.warning(f"No results found posted in the {date_filter}. Try broadening your search terms or expanding the date range.")
             else:
-                st.success(f"Successfully retrieved the top {len(df_results)} live postings!")
+                st.success(f"Successfully retrieved {len(df_results)} postings from {date_filter}!")
                 
                 st.dataframe(
                     df_results,
