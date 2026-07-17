@@ -3,37 +3,35 @@ import pandas as pd
 import requests
 
 # --- APP CONFIGURATION ---
-st.set_page_config(page_title="AOL HR Dashboard", layout="wide", page_icon="💼")
+st.set_page_config(page_title="AOL HR", layout="wide", page_icon="💼")
 
 # --- SECRETS MANAGEMENT ---
 try:
-    API_KEY = st.secrets["GOOGLE_API_KEY"]
-    CX_ID = st.secrets["GOOGLE_CX"]
+    API_KEY = st.secrets["SERPAPI_KEY"]
 except KeyError:
-    st.error("🚨 API Keys are missing! Please configure 'GOOGLE_API_KEY' and 'GOOGLE_CX' in your hosting environment.")
+    st.error("Api config error.")
     st.stop()
 
 # --- UI HEADER ---
-st.title("💼 HR Job Search Dashboard")
-st.write("Search live job portals on Google")
+st.title("💼 Internal Job Search Portal")
+st.write("Search live job portals).")
 
 # --- SIDEBAR: SEARCH PARAMETERS ---
 st.sidebar.header("🔍 Search Parameters")
 
 job_title = st.sidebar.text_input("Job Title / Keyword", placeholder="e.g., Senior Python Developer")
-location = st.sidebar.text_input("Location", placeholder="e.g., Bengaluru, Remote")
+location = st.sidebar.text_input("Location", placeholder="e.g., Mumbai, Bangalore")
 
-# NEW: Date restriction filter defaulting to Today
 date_filter = st.sidebar.selectbox(
     "Date Posted",
-    options=["Past 24 Hours (Today)", "Past Week", "Any Time"],
+    options=["Past 24 Hours (Today)"],
     index=0 
 )
 
-# Map UI selection to Google's specific dateRestrict syntax
+# Map UI selection to SerpApi's time parameter (tbs)
 date_restrict_mapping = {
-    "Past 24 Hours (Today)": "d1",
-    "Past Week": "w1",
+    "Past 24 Hours (Today)": "d",
+    "Past Week": "w",
     "Any Time": None
 }
 selected_date = date_restrict_mapping[date_filter]
@@ -44,35 +42,33 @@ target_portals = st.sidebar.multiselect(
     default=["instahyre.com", "naukri.com"]
 )
 
-# --- GOOGLE SEARCH API FUNCTION ---
-def fetch_jobs_from_google(api_key, cx, title, loc, portals, date_restrict):
-    """Calls the Google Custom Search API and parses the results."""
+# --- SERPAPI FUNCTION ---
+def fetch_jobs_from_serpapi(api_key, title, loc, portals, date_restrict):
+    """Calls SerpApi to scrape Google search results and parse the data."""
     
     site_query = " OR ".join([f"site:{site}" for site in portals])
     search_query = f'"{title}" {loc} ({site_query})'
     
-    url = "https://www.googleapis.com/customsearch/v1"
+    url = "https://serpapi.com/search.json"
     
-    # Base parameters
     params = {
-        'key': api_key,
-        'cx': cx,
-        'q': search_query,
-        'num': 10 
+        "engine": "google",
+        "q": search_query,
+        "api_key": api_key,
+        "num": 10  # Number of results to fetch
     }
     
-    # NEW: Dynamically inject the date filter if one is selected
     if date_restrict:
-        params['dateRestrict'] = date_restrict
+        params["tbs"] = f"qdr:{date_restrict}"
     
     response = requests.get(url, params=params)
     
     if response.status_code != 200:
-        st.error(f"API Error: {response.json().get('error', {}).get('message', 'Unknown Error')}")
+        st.error(f"API Error: {response.json().get('error', 'Unknown Error')}")
         return pd.DataFrame()
         
     data = response.json()
-    items = data.get('items', [])
+    items = data.get('organic_results', [])
     
     if not items:
         return pd.DataFrame()
@@ -83,7 +79,7 @@ def fetch_jobs_from_google(api_key, cx, title, loc, portals, date_restrict):
             "Job Title / Post": item.get('title', '').replace(' | LinkedIn', '').replace(' - Naukri.com', ''),
             "Brief Description": item.get('snippet', ''),
             "Direct Link": item.get('link', ''),
-            "Source": item.get('displayLink', '')
+            "Source": item.get('source', '')
         })
         
     return pd.DataFrame(results)
@@ -95,12 +91,10 @@ if st.button("Search Live Jobs", type="primary"):
     elif not target_portals:
         st.warning("Please select at least one Target Job Board.")
     else:
-        with st.spinner(f"Querying Google for '{job_title}' roles in '{location}' ({date_filter})..."):
+        with st.spinner(f"Querying search engines for '{job_title}' roles in '{location}' ({date_filter})..."):
             
-            # Pass the new selected_date parameter into our function
-            df_results = fetch_jobs_from_google(
+            df_results = fetch_jobs_from_serpapi(
                 API_KEY, 
-                CX_ID, 
                 job_title, 
                 location, 
                 target_portals, 
@@ -108,9 +102,9 @@ if st.button("Search Live Jobs", type="primary"):
             )
             
             if df_results.empty:
-                st.warning(f"No results found posted in the {date_filter}. Try broadening your search terms or expanding the date range.")
+                st.warning(f"No results found posted in the {date_filter}. Try broadening your search terms.")
             else:
-                st.success(f"Successfully retrieved {len(df_results)} postings from {date_filter}!")
+                st.success(f"Successfully retrieved {len(df_results)} postings!")
                 
                 st.dataframe(
                     df_results,
