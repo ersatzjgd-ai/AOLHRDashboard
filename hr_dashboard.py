@@ -13,7 +13,7 @@ except KeyError:
     st.stop()
 
 # --- UI HEADER ---
-st.title("💼 Internal Job Search Portal")
+st.title("💼 AOL Human Resources Job Search Portal")
 st.write("Search live job portals).")
 
 # --- SIDEBAR: SEARCH PARAMETERS ---
