@@ -55,7 +55,7 @@ def fetch_jobs_from_serpapi(api_key, title, loc, portals, date_restrict):
         "engine": "google",
         "q": search_query,
         "api_key": api_key,
-        "num":  # Number of results to fetch
+        "num": 20 # Number of results to fetch
     }
     
     if date_restrict:
